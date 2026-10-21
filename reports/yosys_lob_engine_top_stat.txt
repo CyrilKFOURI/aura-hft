@@ -1,0 +1,32 @@
+
+9. Printing statistics.
+
+=== lob_engine_top ===
+
+   Number of wires:              51412
+   Number of wire bits:         240025
+   Number of public wires:         497
+   Number of public wire bits:   35866
+   Number of memories:               0
+   Number of memory bits:            0
+   Number of processes:              0
+   Number of cells:              89251
+     BUFG                            1
+     CARRY4                        536
+     DSP48E2                        35
+     FDCE                         6023
+     FDPE                            1
+     FDRE                        14764
+     INV                          6376
+     LUT1                         3003
+     LUT2                         6708
+     LUT3                        11929
+     LUT4                         4487
+     LUT5                         2637
+     LUT6                        18996
+     MUXF7                        7743
+     MUXF8                        2773
+     MUXF9                         815
+     RAM64M8                      2048
+     RAMB36E2                      376
+

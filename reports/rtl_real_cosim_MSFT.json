@@ -1,0 +1,19 @@
+{
+  "symbol": "MSFT",
+  "messages_replayed": 58888,
+  "bbo_mismatches": 0,
+  "top5_mismatches": 0,
+  "first_bbo_mismatch_msg": null,
+  "active_order_count_end": 19143,
+  "parsed_msg_count_end": 58888,
+  "real_sizing": {
+    "symbol": "MSFT",
+    "messages": 58888,
+    "max_live_orders": 20324,
+    "max_bid_levels": 1601,
+    "max_ask_levels": 1247
+  },
+  "settle_cycles": 60,
+  "wall_seconds": 326.3,
+  "examples": []
+}
