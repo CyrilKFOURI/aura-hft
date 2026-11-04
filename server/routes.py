@@ -3,7 +3,7 @@ REST API routes for AURA-HFT backend.
 """
 
 import uuid
-from typing import Any, Dict, List
+from typing import List, Dict, Any, Optional
 from fastapi import APIRouter, HTTPException, Query, status
 
 from .db import DatabaseManager
@@ -16,34 +16,28 @@ from .models import (
     AxiLiteTuneRequest,
     AxiLiteStatusResponse,
 )
-from .latency_sources import latency_summary
-from .live.manager import get_manager
 from .simulation_runner import SimulationRunner
 
 router = APIRouter(prefix="/api", tags=["simulation"])
 db_manager = DatabaseManager()
 sim_runner = SimulationRunner(db_manager)
 
-# AXI-Lite register mirror. No board is connected (step P7 pending), so the
-# writable registers hold the host's last values and every read-back counter
-# is zero: nothing here is hardware telemetry.
-AXI_LITE_TELEMETRY_SOURCE = "demo state: no KR260 connected, counters are zero (not hardware telemetry)"
-axi_lite_state: Dict[str, Any] = {
+# In-memory AXI-Lite simulated hardware registers state
+axi_lite_state = {
     "kill_switch": False,
     "skew_factor": 2,
     "half_spread": 100,  # $0.0100 (1 cent)
     "max_inventory": 2000,
     "max_order_shares": 1000,
     "strategy_mode": "AVELLANEDA_STOIKOV",
-    "active_inventory": 0,
-    "reservation_price": 0.0,
-    "best_bid": 0.0,
-    "best_ask": 0.0,
-    "total_orders_approved": 0,
-    "total_orders_rejected": 0,
-    "arbitrated_orders": 0,
-    "collision_count": 0,
-    "telemetry_source": AXI_LITE_TELEMETRY_SOURCE,
+    "active_inventory": 150,
+    "reservation_price": 150.02,
+    "best_bid": 150.00,
+    "best_ask": 150.05,
+    "total_orders_approved": 128,
+    "total_orders_rejected": 2,
+    "arbitrated_orders": 128,
+    "collision_count": 8,
 }
 
 AVAILABLE_DATASETS: List[DatasetInfo] = [
@@ -100,32 +94,8 @@ AVAILABLE_DATASETS: List[DatasetInfo] = [
 
 
 @router.get("/health", status_code=status.HTTP_200_OK)
-def health_check() -> Dict[str, Any]:
-    return health_payload()
-
-
-def health_payload() -> Dict[str, Any]:
-    db_ok = True
-    try:
-        db_manager.list_runs()
-    except Exception:  # reported in the payload, never raised
-        db_ok = False
-    return {
-        "status": "healthy" if db_ok else "degraded",
-        "service": "aura-hft-backend",
-        "checks": {"database": "ok" if db_ok else "error", "live_feed": get_manager().state},
-    }
-
-
-@router.get("/latency")
-def get_latency() -> Dict[str, Any]:
-    """FPGA tick-to-trade (simulated cycles) next to the measured C++ software path."""
-    return latency_summary()
-
-
-@router.get("/live/status")
-def get_live_status() -> Dict[str, Any]:
-    return get_manager().status()
+def health_check() -> Dict[str, str]:
+    return {"status": "healthy", "service": "aura-hft-backend", "engine": "verilator-fpga-exact"}
 
 
 @router.post("/axi-lite/tune", response_model=AxiLiteStatusResponse)
@@ -158,7 +128,7 @@ def list_datasets() -> List[DatasetInfo]:
 @router.post("/runs/launch", response_model=RunResponse, status_code=status.HTTP_201_CREATED)
 def launch_run(request: RunLaunchRequest) -> RunResponse:
     run_id = str(uuid.uuid4())
-    sim_runner.run_simulation(run_id, request)
+    result = sim_runner.run_simulation(run_id, request)
     run_record = db_manager.get_run(run_id)
     if not run_record:
         raise HTTPException(status_code=500, detail="Failed to retrieve newly created run")

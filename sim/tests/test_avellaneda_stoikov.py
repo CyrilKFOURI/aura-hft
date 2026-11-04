@@ -4,6 +4,7 @@ Invokes Cocotb + Verilator co-simulation.
 """
 
 from pathlib import Path
+import pytest
 from cocotb_test.simulator import run
 
 
@@ -12,7 +13,7 @@ def test_avellaneda_stoikov_verilator():
     repo_root = Path(__file__).resolve().parent.parent.parent
 
     verilog_sources = [
-        str(repo_root / "rtl" / "experimental" / "avellaneda_stoikov_engine.sv"),
+        str(repo_root / "rtl" / "quant" / "avellaneda_stoikov_engine.sv"),
     ]
     includes = [
         str(repo_root / "rtl" / "quant"),

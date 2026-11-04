@@ -27,7 +27,7 @@ module aura_hft_top #(
     parameter bit          STRIP_ETH_IP_UDP     = 1'b1,
     parameter logic [63:0] TARGET_STOCK         = 64'h4141504C20202020, // "AAPL    "
     parameter bit          ENABLE_SYMBOL_FILTER = 1'b1,
-    parameter int unsigned NUM_SETS             = 8192,
+    parameter int unsigned NUM_SETS             = 256,
     parameter int unsigned NUM_WAYS             = 4,
     parameter int unsigned BOOK_DEPTH           = 16,
     parameter int unsigned NUM_TRACKED_ORDERS   = 4
@@ -315,15 +315,12 @@ module aura_hft_top #(
     logic             parsed_msg_valid;
     itch_parsed_msg_t parsed_msg;
 
-    logic book_backpressure;  // order book request FIFO almost full -> stall ingress
-
     /* verilator lint_off PINMISSING */
     ingress_pipeline_top #(
         .STRIP_ETH_IP_UDP(STRIP_ETH_IP_UDP)
     ) u_ingress (
         .clk                  (clk),
         .rst_n                (rst_n),
-        .book_backpressure    (book_backpressure),
         .s_axis_tdata         (fcs_axis_tdata),
         .s_axis_tkeep         (fcs_axis_tkeep),
         .s_axis_tvalid        (fcs_axis_tvalid),
@@ -353,7 +350,6 @@ module aura_hft_top #(
     ) u_lob_engine (
         .clk                  (clk),
         .rst_n                (rst_n),
-        .req_almost_full      (book_backpressure),
         .parsed_msg_valid     (parsed_msg_valid),
         .parsed_msg           (parsed_msg),
         .bbo_valid            (bbo_valid),
@@ -550,9 +546,9 @@ module aura_hft_top #(
     ) u_risk_ouch (
         .clk                       (clk),
         .rst_n                     (rst_n),
-        .bbo_valid                 (bbo_valid),
-        .bbo_bid_shares            (best_bid_shares),
-        .bbo_ask_shares            (best_ask_shares),
+        .obi_valid                 (obi_valid),
+        .obi_val                   (obi_val),
+        .micro_price               (micro_price),
         .bbo_bid_price             (best_bid_price),
         .bbo_ask_price             (best_ask_price),
         .current_timestamp         (hw_timer),

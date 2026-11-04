@@ -8,7 +8,7 @@ Format Specs:
 """
 
 from dataclasses import dataclass
-from typing import Optional
+from typing import Optional, Tuple, Dict, Any
 import struct
 
 

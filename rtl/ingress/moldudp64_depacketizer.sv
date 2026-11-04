@@ -66,15 +66,6 @@ module moldudp64_depacketizer #(
     logic [7:0]  prev_keep;
     logic        has_trail;
 
-    // Frame filtering (P3b robustness). A frame is consumed but not forwarded
-    // when it is not Ethernet II / IPv4 without options / UDP (STRIP_ETH_IP_UDP
-    // mode), or when its MoldUDP64 sequence number is behind the expected one
-    // (retransmitted duplicate: re-applying it would corrupt the book).
-    logic        hdr_bad;       // Ethernet/IP/UDP header check failed for this frame
-    logic        drop_frame;    // payload of the current frame is discarded
-    logic [31:0] dropped_dup_frames;
-    logic [31:0] dropped_bad_hdr_frames;
-
     assign session_name       = reg_session_name;
     assign sequence_number    = reg_seq_num;
     assign message_count      = reg_msg_count;
@@ -145,10 +136,6 @@ module moldudp64_depacketizer #(
             prev_data           <= '0;
             prev_keep           <= '0;
             has_trail           <= 1'b0;
-            hdr_bad             <= 1'b0;
-            drop_frame          <= 1'b0;
-            dropped_dup_frames  <= '0;
-            dropped_bad_hdr_frames <= '0;
         end else begin
             // Default strobes
             pkt_header_valid   <= 1'b0;
@@ -163,10 +150,8 @@ module moldudp64_depacketizer #(
 
             case (state)
                 ST_IDLE: begin
-                    word_idx   <= '0;
-                    has_trail  <= 1'b0;
-                    hdr_bad    <= 1'b0;
-                    drop_frame <= 1'b0;
+                    word_idx  <= '0;
+                    has_trail <= 1'b0;
                     if (s_axis_tvalid && s_axis_tready) begin
                         state    <= ST_HEADER_PARSE;
                         word_idx <= 8'd1;
@@ -191,16 +176,6 @@ module moldudp64_depacketizer #(
 
                         if (STRIP_ETH_IP_UDP) begin
                             // Strip Ethernet (14) + IPv4 (20) + UDP (8) = 42 bytes
-                            // Word 1: bytes 12-13 EtherType (0x0800), byte 14 version/IHL (0x45)
-                            if (word_idx == 8'd1 &&
-                                (s_axis_tdata[39:32] != 8'h08 || s_axis_tdata[47:40] != 8'h00 ||
-                                 s_axis_tdata[55:48] != 8'h45)) begin
-                                hdr_bad <= 1'b1;
-                            end
-                            // Word 2: byte 23 IP protocol (17 = UDP)
-                            if (word_idx == 8'd2 && s_axis_tdata[63:56] != 8'h11) begin
-                                hdr_bad <= 1'b1;
-                            end
                             if (word_idx == 8'd5) begin
                                 // Word 5: s_axis_tdata[15:0] = UDP[6:7], s_axis_tdata[63:16] = Session[0:5]
                                 reg_session_name[79:32] <= {
@@ -231,31 +206,23 @@ module moldudp64_depacketizer #(
                                 };
                                 cur_cnt = {s_axis_tdata[39:32], s_axis_tdata[47:40]};
 
-                                if (hdr_bad) begin
-                                    // Not a MoldUDP64-over-UDP/IPv4 frame: no sequence update
-                                    drop_frame             <= 1'b1;
-                                    dropped_bad_hdr_frames <= dropped_bad_hdr_frames + 1'b1;
-                                end else begin
-                                    reg_seq_num   <= cur_seq;
-                                    reg_msg_count <= cur_cnt;
-                                    pkt_header_valid <= 1'b1;
+                                reg_seq_num   <= cur_seq;
+                                reg_msg_count <= cur_cnt;
+                                pkt_header_valid <= 1'b1;
 
-                                    // Sequence Gap & Duplicate Check
-                                    if (!seq_initialized) begin
-                                        seq_initialized  <= 1'b1;
+                                // Sequence Gap & Duplicate Check
+                                if (!seq_initialized) begin
+                                    seq_initialized  <= 1'b1;
+                                    expected_seq_num <= cur_seq + 64'(cur_cnt);
+                                end else begin
+                                    if (cur_seq == expected_seq_num) begin
+                                        expected_seq_num <= cur_seq + 64'(cur_cnt);
+                                    end else if (cur_seq > expected_seq_num) begin
+                                        gap_detected     <= 1'b1;
+                                        gap_count        <= cur_seq - expected_seq_num;
                                         expected_seq_num <= cur_seq + 64'(cur_cnt);
                                     end else begin
-                                        if (cur_seq == expected_seq_num) begin
-                                            expected_seq_num <= cur_seq + 64'(cur_cnt);
-                                        end else if (cur_seq > expected_seq_num) begin
-                                            gap_detected     <= 1'b1;
-                                            gap_count        <= cur_seq - expected_seq_num;
-                                            expected_seq_num <= cur_seq + 64'(cur_cnt);
-                                        end else begin
-                                            duplicate_detected <= 1'b1;
-                                            drop_frame         <= 1'b1;
-                                            dropped_dup_frames <= dropped_dup_frames + 1'b1;
-                                        end
+                                        duplicate_detected <= 1'b1;
                                     end
                                 end
 
@@ -265,7 +232,7 @@ module moldudp64_depacketizer #(
 
                                 if (s_axis_tlast) begin
                                     // Extremely short packet with only 2 bytes of payload
-                                    m_axis_tvalid <= !hdr_bad && !(seq_initialized && cur_seq < expected_seq_num);
+                                    m_axis_tvalid <= 1'b1;
                                     m_axis_tdata  <= {48'd0, s_axis_tdata[63:48]};
                                     m_axis_tkeep  <= 8'h03;
                                     m_axis_tlast  <= 1'b1;
@@ -312,8 +279,6 @@ module moldudp64_depacketizer #(
                                         expected_seq_num <= cur_seq + 64'(cur_cnt);
                                     end else begin
                                         duplicate_detected <= 1'b1;
-                                        drop_frame         <= 1'b1;
-                                        dropped_dup_frames <= dropped_dup_frames + 1'b1;
                                     end
                                 end
 
@@ -322,7 +287,7 @@ module moldudp64_depacketizer #(
                                 prev_keep <= 8'h0F; // 4 valid bytes
 
                                 if (s_axis_tlast) begin
-                                    m_axis_tvalid <= !(seq_initialized && cur_seq < expected_seq_num);
+                                    m_axis_tvalid <= 1'b1;
                                     m_axis_tdata  <= {32'd0, s_axis_tdata[63:32]};
                                     m_axis_tkeep  <= 8'h0F;
                                     m_axis_tlast  <= 1'b1;
@@ -349,7 +314,7 @@ module moldudp64_depacketizer #(
                         if (STRIP_ETH_IP_UDP) begin
                             total_k = 5'd2 + {1'b0, in_k};
                             if (!s_axis_tlast) begin
-                                m_axis_tvalid <= !drop_frame;
+                                m_axis_tvalid <= 1'b1;
                                 m_axis_tlast  <= 1'b0;
                                 m_axis_tdata  <= {s_axis_tdata[47:0], prev_data[15:0]};
                                 m_axis_tkeep  <= 8'hFF;
@@ -357,13 +322,13 @@ module moldudp64_depacketizer #(
                                 prev_keep     <= 8'h03;
                             end else begin
                                 if (total_k <= 5'd8) begin
-                                    m_axis_tvalid <= !drop_frame;
+                                    m_axis_tvalid <= 1'b1;
                                     m_axis_tlast  <= 1'b1;
                                     m_axis_tdata  <= {s_axis_tdata[47:0], prev_data[15:0]};
                                     m_axis_tkeep  <= len_to_keep(total_k[3:0]);
                                     state         <= ST_IDLE;
                                 end else begin
-                                    m_axis_tvalid <= !drop_frame;
+                                    m_axis_tvalid <= 1'b1;
                                     m_axis_tlast  <= 1'b0;
                                     m_axis_tdata  <= {s_axis_tdata[47:0], prev_data[15:0]};
                                     m_axis_tkeep  <= 8'hFF;
@@ -376,7 +341,7 @@ module moldudp64_depacketizer #(
                         end else begin
                             total_k = 5'd4 + {1'b0, in_k};
                             if (!s_axis_tlast) begin
-                                m_axis_tvalid <= !drop_frame;
+                                m_axis_tvalid <= 1'b1;
                                 m_axis_tlast  <= 1'b0;
                                 m_axis_tdata  <= {s_axis_tdata[31:0], prev_data[31:0]};
                                 m_axis_tkeep  <= 8'hFF;
@@ -384,13 +349,13 @@ module moldudp64_depacketizer #(
                                 prev_keep     <= 8'h0F;
                             end else begin
                                 if (total_k <= 5'd8) begin
-                                    m_axis_tvalid <= !drop_frame;
+                                    m_axis_tvalid <= 1'b1;
                                     m_axis_tlast  <= 1'b1;
                                     m_axis_tdata  <= {s_axis_tdata[31:0], prev_data[31:0]};
                                     m_axis_tkeep  <= len_to_keep(total_k[3:0]);
                                     state         <= ST_IDLE;
                                 end else begin
-                                    m_axis_tvalid <= !drop_frame;
+                                    m_axis_tvalid <= 1'b1;
                                     m_axis_tlast  <= 1'b0;
                                     m_axis_tdata  <= {s_axis_tdata[31:0], prev_data[31:0]};
                                     m_axis_tkeep  <= 8'hFF;
@@ -406,7 +371,7 @@ module moldudp64_depacketizer #(
 
                 ST_FLUSH_TRAIL: begin
                     if (!m_axis_tvalid || m_axis_tready) begin
-                        m_axis_tvalid <= !drop_frame;
+                        m_axis_tvalid <= 1'b1;
                         m_axis_tlast  <= 1'b1;
                         m_axis_tdata  <= prev_data;
                         m_axis_tkeep  <= prev_keep;

@@ -4,6 +4,7 @@ Verifies standard IEEE 802.3 CRC-32 matching Python binascii.crc32, cut-through 
 """
 
 import binascii
+import struct
 import cocotb
 from cocotb.clock import Clock
 from cocotb.triggers import RisingEdge

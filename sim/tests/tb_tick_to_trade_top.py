@@ -14,7 +14,7 @@ Simulates:
 import struct
 import cocotb
 from cocotb.clock import Clock
-from cocotb.triggers import RisingEdge
+from cocotb.triggers import RisingEdge, Timer
 from sim.tests.tb_itch_parser import (
     build_eth_ip_udp_frame,
     send_axis_frame,
@@ -227,7 +227,7 @@ async def test_end_to_end_queue_tracker_integration(dut):
     dut.cfg_queue_valid.value = 0
 
     await RisingEdge(dut.clk)
-    assert (int(dut.slot_volume_ahead.value) & 0xFFFFFFFF) == 400
+    assert int(dut.slot_volume_ahead[0].value) == 400
     assert (int(dut.slot_is_top_of_queue.value) & 1) == 0
 
     # 2. Add real order 1001 at $150.00 (500 shares)
@@ -243,7 +243,7 @@ async def test_end_to_end_queue_tracker_integration(dut):
         await RisingEdge(dut.clk)
 
     # Volume ahead should be reduced from 400 by 300 -> 100 shares remaining!
-    vol_ahead = (int(dut.slot_volume_ahead.value) & 0xFFFFFFFF)
+    vol_ahead = int(dut.slot_volume_ahead[0].value)
     dut._log.info(f"Queue volume ahead after execution: {vol_ahead}")
     assert vol_ahead == 100, f"Expected 100 shares ahead, got {vol_ahead}"
     assert (int(dut.slot_is_top_of_queue.value) & 1) == 0
@@ -257,6 +257,6 @@ async def test_end_to_end_queue_tracker_integration(dut):
         await RisingEdge(dut.clk)
 
     # Now volume ahead reaches 0 -> top of queue!
-    assert (int(dut.slot_volume_ahead.value) & 0xFFFFFFFF) == 0
+    assert int(dut.slot_volume_ahead[0].value) == 0
     assert (int(dut.slot_is_top_of_queue.value) & 1) == 1
     dut._log.info("Integrated Queue Tracker reached Top-of-Queue successfully!")

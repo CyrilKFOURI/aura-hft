@@ -1,6 +1,5 @@
 import React from 'react';
-import { Terminal, Sliders, BarChart2 } from 'lucide-react';
-import { CyfouriLogo } from './CyfouriLogo';
+import { Cpu, Terminal, Sliders, BarChart2 } from 'lucide-react';
 
 interface NavbarProps {
   currentTab: 'launcher' | 'replay' | 'analytics';
@@ -16,11 +15,11 @@ export const Navbar: React.FC<NavbarProps> = ({
   activeRunId,
 }) => {
   return (
-    <header className="h-12 min-h-[48px] bg-[#08090d] border-b border-neutral-800/80 px-3 flex items-center justify-between text-xs font-mono select-none z-30">
+    <header className="h-9 min-h-[36px] bg-[#08090d] border-b border-neutral-800/80 px-3 flex items-center justify-between text-xs font-mono select-none z-30">
       {/* Brand & Platform Spec */}
       <div className="flex items-center space-x-3 text-neutral-300">
         <div className="flex items-center space-x-2">
-          <CyfouriLogo className="h-10 w-auto text-neutral-200" />
+          <Cpu className="w-3.5 h-3.5 text-neutral-400" />
           <span className="font-semibold tracking-wider text-neutral-100 text-[11px]">
             AURA<span className="text-neutral-400">::HFT</span>
           </span>

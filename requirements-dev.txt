@@ -1,8 +1,0 @@
-# Verification & quality tooling (pinned for reproducibility)
--r requirements.txt
-cocotb==2.0.1
-cocotb-test==0.3.0
-ruff==0.6.9
-mypy==1.11.2
-httpx==0.27.2
-meatpy==0.5.0

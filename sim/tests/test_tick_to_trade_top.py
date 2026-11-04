@@ -4,6 +4,7 @@ Invokes Cocotb + Verilator co-simulation.
 """
 
 from pathlib import Path
+import pytest
 from cocotb_test.simulator import run
 
 
@@ -19,11 +20,9 @@ def test_tick_to_trade_top_verilator():
         str(repo_root / "rtl" / "parser" / "itch_parser_fsm.sv"),
         str(repo_root / "rtl" / "parser" / "speculative_itch_parser.sv"),
         str(repo_root / "rtl" / "ingress" / "ingress_pipeline_top.sv"),
-        str(repo_root / "rtl" / "experimental" / "order_hash_table.sv"),
-        str(repo_root / "rtl" / "experimental" / "price_ladder_l2.sv"),
+        str(repo_root / "rtl" / "book" / "order_hash_table.sv"),
+        str(repo_root / "rtl" / "book" / "price_ladder_l2.sv"),
         str(repo_root / "rtl" / "book" / "top_of_book_cache.sv"),
-        str(repo_root / "rtl" / "book" / "order_store.sv"),
-        str(repo_root / "rtl" / "book" / "depth_book.sv"),
         str(repo_root / "rtl" / "book" / "lob_engine_top.sv"),
         str(repo_root / "rtl" / "quant" / "obi_calculator.sv"),
         str(repo_root / "rtl" / "quant" / "queue_tracker.sv"),
@@ -31,7 +30,6 @@ def test_tick_to_trade_top_verilator():
         str(repo_root / "rtl" / "risk" / "pre_trade_risk.sv"),
         str(repo_root / "rtl" / "risk" / "pnl_circuit_breaker.sv"),
         str(repo_root / "rtl" / "egress" / "ouch_order_gen.sv"),
-        str(repo_root / "rtl" / "quant" / "obi_signal.sv"),
         str(repo_root / "rtl" / "risk" / "risk_ouch_top.sv"),
         str(repo_root / "rtl" / "control" / "axi_lite_control_registers.sv"),
         str(repo_root / "rtl" / "metrology" / "ptp_timer_96b.sv"),

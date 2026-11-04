@@ -3,7 +3,9 @@ Pytest integration runner for Ingress Network Pipeline & ITCH 5.0 Parser.
 Invokes Cocotb + Verilator co-simulation.
 """
 
+import os
 from pathlib import Path
+import pytest
 from cocotb_test.simulator import run
 
 

@@ -4,6 +4,7 @@ Invokes Cocotb + Verilator co-simulation.
 """
 
 from pathlib import Path
+import pytest
 from cocotb_test.simulator import run
 
 
@@ -12,7 +13,7 @@ def test_cross_exchange_arbiter_verilator():
     repo_root = Path(__file__).resolve().parent.parent.parent
 
     verilog_sources = [
-        str(repo_root / "rtl" / "experimental" / "cross_exchange_arbiter.sv"),
+        str(repo_root / "rtl" / "arb" / "cross_exchange_arbiter.sv"),
     ]
     includes = [
         str(repo_root / "rtl" / "arb"),
@@ -43,14 +44,12 @@ def test_cross_exchange_pipeline_verilator():
         str(repo_root / "rtl" / "parser" / "itch_parser_fsm.sv"),
         str(repo_root / "rtl" / "parser" / "speculative_itch_parser.sv"),
         str(repo_root / "rtl" / "ingress" / "ingress_pipeline_top.sv"),
-        str(repo_root / "rtl" / "experimental" / "order_hash_table.sv"),
-        str(repo_root / "rtl" / "experimental" / "price_ladder_l2.sv"),
+        str(repo_root / "rtl" / "book" / "order_hash_table.sv"),
+        str(repo_root / "rtl" / "book" / "price_ladder_l2.sv"),
         str(repo_root / "rtl" / "book" / "top_of_book_cache.sv"),
-        str(repo_root / "rtl" / "book" / "order_store.sv"),
-        str(repo_root / "rtl" / "book" / "depth_book.sv"),
         str(repo_root / "rtl" / "book" / "lob_engine_top.sv"),
-        str(repo_root / "rtl" / "experimental" / "cross_exchange_arbiter.sv"),
-        str(repo_root / "rtl" / "experimental" / "cross_exchange_pipeline_top.sv"),
+        str(repo_root / "rtl" / "arb" / "cross_exchange_arbiter.sv"),
+        str(repo_root / "rtl" / "arb" / "cross_exchange_pipeline_top.sv"),
     ]
     includes = [
         str(repo_root / "rtl" / "include"),

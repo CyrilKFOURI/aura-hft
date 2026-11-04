@@ -168,7 +168,7 @@ async def test_speculative_all_opcodes(dut):
     cocotb.start_soon(clock.start())
     await reset_dut(dut)
 
-    _golden = ItchDecoder()
+    golden = ItchDecoder()
 
     # Generate each of the 7 supported message types
     msg_a = encode_itch_a(10, 1, 1000000, 1001, "B", 100, "AAPL    ", 1500000)

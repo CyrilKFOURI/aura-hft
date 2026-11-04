@@ -3,7 +3,7 @@ Pydantic data models for AURA-HFT REST API and WebSocket events.
 """
 
 from pydantic import BaseModel, Field
-from typing import Optional, List, Dict, Any
+from typing import Optional, List, Dict, Any, Union
 
 
 class RunLaunchRequest(BaseModel):
@@ -109,5 +109,4 @@ class AxiLiteStatusResponse(BaseModel):
     total_orders_rejected: int
     arbitrated_orders: int
     collision_count: int
-    telemetry_source: str
 

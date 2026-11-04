@@ -1,29 +1,23 @@
-# Secrets
+# Secrets & Config
 .env
 *.env
-!.env.example
 
-# Third-party reference PDFs (not redistributable)
+# Large Binary & PDF Assets (Sources)
 sources/**/pdfs/
 
-# Python
+# Python & Testing Artifacts
 __pycache__/
 *.py[cod]
 *$py.class
-.venv/
-venv/
 .pytest_cache/
 .mypy_cache/
-.ruff_cache/
 .coverage
 htmlcov/
-
-# Runtime data (downloaded market data, SQLite)
 data/*.db
 data/*.db-*
-data/cache/
 
-# HDL simulation
+
+# Hardware Simulation Artifacts (Verilator, Cocotb, Waveforms)
 sim_build/
 sim/build/
 obj_dir/
@@ -33,27 +27,13 @@ obj_dir/
 results.xml
 driver/bin/
 
-# Vivado
-*.jou
-*.log
-.Xil/
-
-# Frontend
+# Node & Frontend Build Artifacts
 node_modules/
 dist/
 build/
-*.tsbuildinfo
+.next/
+.turbo/
 
-# Video rendering (large binaries)
-video/render/
-*.blend1
-
-# Local tooling
-.claude/
-CLAUDE.md
-
-# OS / editors
+# OS Specific
 .DS_Store
 Thumbs.db
-.vscode/
-.idea/

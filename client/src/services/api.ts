@@ -1,4 +1,4 @@
-import type { DatasetInfo, LatencySummary, RunLaunchRequest, RunResponse, TickData, OrderData } from '../types';
+import type { DatasetInfo, RunLaunchRequest, RunResponse, TickData, OrderData } from '../types';
 
 const API_BASE = '/api';
 
@@ -48,12 +48,6 @@ export async function launchRun(request: RunLaunchRequest): Promise<RunResponse>
     const errorText = await res.text();
     throw new Error(`Failed to launch run: ${errorText}`);
   }
-  return res.json();
-}
-
-export async function fetchLatency(): Promise<LatencySummary> {
-  const res = await fetch(`${API_BASE}/latency`);
-  if (!res.ok) throw new Error('Failed to fetch latency summary');
   return res.json();
 }
 

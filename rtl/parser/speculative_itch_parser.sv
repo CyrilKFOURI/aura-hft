@@ -37,25 +37,15 @@ module speculative_itch_parser (
     output logic             msg_drop,
     output logic [7:0]       unsupported_type_code,
     output logic [31:0]      parsed_msg_count,
-    output logic [31:0]      dropped_msg_count,
-    output logic [31:0]      truncated_msg_count  // bytes discarded at a frame end / malformed block
+    output logic [31:0]      dropped_msg_count
 );
 
     // 64-byte sliding window buffer (512 bits)
     logic [7:0] buf_data [0:63];
     logic [6:0] buf_count;
 
-    // Frame-boundary tracking (P3b robustness). Messages never straddle two
-    // frames: once a frame's last beat is in, no new frame is accepted until
-    // its bytes are consumed, and any tail that is not a whole message
-    // (truncated frame) is discarded. A block length of 0 or > 62 cannot be
-    // framed: the rest of that frame is skipped.
-    logic       eof_valid;   // buffer holds the tail of a frame whose tlast was seen
-    logic [6:0] eof_pos;     // number of buffered bytes belonging to that frame
-    logic       skip_frame;  // discarding bytes until the current frame's tlast
-
     // Buffer ready when space exists for an incoming 8-byte word
-    assign s_axis_tready = (buf_count <= 7'd56) && !eof_valid;
+    assign s_axis_tready = (buf_count <= 7'd56);
 
     // Count valid input bytes from tkeep
     function automatic logic [3:0] get_keep_bytes(input logic [7:0] keep);
@@ -229,33 +219,8 @@ module speculative_itch_parser (
     logic [6:0] required_len;
     assign required_len = 7'd2 + cur_msg_len[6:0];
 
-    logic       in_last;
-    logic       bound_known;
-    logic [6:0] frame_bytes;
-    logic       len_bad;
-    assign in_last     = s_axis_tvalid && s_axis_tready && s_axis_tlast;
-    assign bound_known = eof_valid || in_last;
-    assign frame_bytes = eof_valid ? eof_pos : total_bytes;
-    assign len_bad     = (total_bytes >= 7'd2) && ((cur_msg_len == 16'd0) || (cur_msg_len > 16'd62));
-
     logic has_full_msg;
-    assign has_full_msg = !skip_frame && (total_bytes >= 7'd3) && !len_bad && (total_bytes >= required_len) &&
-                          (!bound_known || (frame_bytes >= required_len));
-
-    // Bytes to throw away this cycle (truncated tail or unframeable block)
-    logic       discard;
-    logic [6:0] discard_bytes;
-    always_comb begin
-        discard       = 1'b0;
-        discard_bytes = 7'd0;
-        if (skip_frame) begin
-            discard       = (total_bytes != 7'd0);
-            discard_bytes = total_bytes;
-        end else if (!has_full_msg && (len_bad || bound_known) && (frame_bytes != 7'd0)) begin
-            discard       = 1'b1;
-            discard_bytes = bound_known ? frame_bytes : total_bytes;
-        end
-    end
+    assign has_full_msg = (total_bytes >= 7'd3) && (cur_msg_len > 16'd0) && (total_bytes >= required_len);
 
     logic match_A, match_F, match_E, match_C, match_X, match_D, match_U;
     assign match_A = has_full_msg && (cur_msg_type == ITCH_MSG_ADD)        && (cur_msg_len >= 16'd36);
@@ -280,7 +245,7 @@ module speculative_itch_parser (
         dec_valid            = 1'b0;
         dec_drop             = 1'b0;
         dec_unsupported_type = 8'd0;
-        consumed_bytes       = discard ? discard_bytes : 7'd0;
+        consumed_bytes       = 7'd0;
 
         if (has_full_msg) begin
             consumed_bytes = required_len;
@@ -329,10 +294,6 @@ module speculative_itch_parser (
             unsupported_type_code <= 8'd0;
             parsed_msg_count      <= 32'd0;
             dropped_msg_count     <= 32'd0;
-            truncated_msg_count   <= 32'd0;
-            eof_valid             <= 1'b0;
-            eof_pos               <= 7'd0;
-            skip_frame            <= 1'b0;
         end else begin
             parsed_msg_valid      <= dec_valid;
             parsed_msg            <= dec_msg;
@@ -344,23 +305,6 @@ module speculative_itch_parser (
             if (dec_drop) begin
                 dropped_msg_count     <= dropped_msg_count + 1'b1;
                 unsupported_type_code <= dec_unsupported_type;
-            end
-            if (discard && !skip_frame) begin
-                truncated_msg_count <= truncated_msg_count + 1'b1;
-            end
-
-            // Frame boundary bookkeeping
-            if (skip_frame) begin
-                if (in_last) skip_frame <= 1'b0;
-            end else if (discard && !bound_known) begin
-                skip_frame <= 1'b1;   // unframeable block inside a frame: drop the rest of it
-            end
-            if (bound_known && !skip_frame) begin
-                eof_valid <= (frame_bytes != consumed_bytes);
-                eof_pos   <= frame_bytes - consumed_bytes;
-            end else begin
-                eof_valid <= 1'b0;
-                eof_pos   <= 7'd0;
             end
 
             // Shift remaining bytes in sliding window buffer

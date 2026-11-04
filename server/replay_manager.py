@@ -5,7 +5,7 @@ Enables fine-grained client-side control: Play, Pause, Step, Seek, and Speed adj
 
 import asyncio
 import json
-from typing import Dict, List, Any
+from typing import Dict, List, Optional, Any
 from fastapi import WebSocket, WebSocketDisconnect
 
 from .db import DatabaseManager

@@ -309,22 +309,23 @@ class GoldenOrderBook:
 
     def _handle_replace(self, msg: ItchMessage):
         # 1. Delete original order
-        # 'U' carries no symbol: an unknown original ref belongs to another
-        # instrument (or predates this book) and must not create an order.
         orig_ref = msg.original_order_ref
-        if orig_ref not in self.orders:
-            return
-        orig_order = self.orders[orig_ref]
-        orig_side = orig_order.side
-        orig_stock = orig_order.stock
-        del_msg = ItchMessage(
-            msg_type="D",
-            stock_locate=msg.stock_locate,
-            tracking_number=msg.tracking_number,
-            timestamp_ns=msg.timestamp_ns,
-            order_ref=orig_ref,
-        )
-        self._handle_delete(del_msg)
+        if orig_ref in self.orders:
+            orig_order = self.orders[orig_ref]
+            orig_side = orig_order.side
+            orig_stock = orig_order.stock
+            # Delete old
+            del_msg = ItchMessage(
+                msg_type="D",
+                stock_locate=msg.stock_locate,
+                tracking_number=msg.tracking_number,
+                timestamp_ns=msg.timestamp_ns,
+                order_ref=orig_ref,
+            )
+            self._handle_delete(del_msg)
+        else:
+            orig_side = "B"
+            orig_stock = self.target_symbol
 
         # 2. Add new order
         new_msg = ItchMessage(

@@ -22,10 +22,9 @@ module risk_ouch_top #(
     input  logic        rst_n,
 
     // Market State & Quantitative Inputs
-    // Top of book (the OBI decision is computed here, division-free)
-    input  logic        bbo_valid,
-    input  logic [31:0] bbo_bid_shares,
-    input  logic [31:0] bbo_ask_shares,
+    input  logic        obi_valid,
+    input  logic signed [31:0] obi_val,         // Q1.31
+    input  logic [31:0] micro_price,
     input  logic [31:0] bbo_bid_price,
     input  logic [31:0] bbo_ask_price,
     input  logic [47:0] current_timestamp,
@@ -92,35 +91,20 @@ module risk_ouch_top #(
     logic [31:0] eff_intent_token;
     logic [47:0] eff_intent_timestamp;
 
-    // Division-free OBI threshold decision (2 cycles after the BBO)
-    logic sig_valid, sig_buy, sig_sell;
-    obi_signal u_obi_signal (
-        .clk        (clk),
-        .rst_n      (rst_n),
-        .bbo_valid  (bbo_valid),
-        .bid_shares (bbo_bid_shares),
-        .ask_shares (bbo_ask_shares),
-        .buy_thresh (cfg_obi_buy_thresh),
-        .sell_thresh(cfg_obi_sell_thresh),
-        .sig_valid  (sig_valid),
-        .sig_buy    (sig_buy),
-        .sig_sell   (sig_sell)
-    );
-
     // Evaluate autonomous trigger condition
     always_comb begin
         strategy_intent_valid  = 1'b0;
         strategy_intent_side   = 1'b0;
         strategy_intent_shares = cfg_default_order_shares;
-        strategy_intent_price  = bbo_bid_price;
+        strategy_intent_price  = micro_price;
         strategy_intent_token  = auto_token_counter;
 
-        if (cfg_auto_trade_enable && sig_valid && !tx_busy) begin
-            if (sig_buy) begin
+        if (cfg_auto_trade_enable && obi_valid && !tx_busy) begin
+            if (obi_val >= cfg_obi_buy_thresh) begin
                 strategy_intent_valid = 1'b1;
                 strategy_intent_side  = 1'b0; // Buy
                 strategy_intent_price = bbo_bid_price;
-            end else if (sig_sell) begin
+            end else if (obi_val <= cfg_obi_sell_thresh) begin
                 strategy_intent_valid = 1'b1;
                 strategy_intent_side  = 1'b1; // Sell
                 strategy_intent_price = bbo_ask_price;

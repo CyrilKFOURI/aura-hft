@@ -14,10 +14,6 @@ module ingress_pipeline_top #(
     input  logic             clk,
     input  logic             rst_n,
 
-    // Backpressure from the order book request FIFO (P3b): stalls the
-    // depacketizer -> parser stream, which propagates to s_axis_tready.
-    input  logic             book_backpressure,
-
     // Ingress AXI4-Stream (Ethernet/IP/UDP/MoldUDP64 frame)
     input  logic [63:0]      s_axis_tdata,
     input  logic [7:0]       s_axis_tkeep,
@@ -84,12 +80,6 @@ module ingress_pipeline_top #(
     logic        mold_axis_tvalid;
     logic        mold_axis_tlast;
     logic        mold_axis_tready;
-    logic        parser_axis_tvalid;
-    logic        parser_axis_tready;
-    logic [31:0] parser_truncated_count;
-
-    assign parser_axis_tvalid = mold_axis_tvalid && !book_backpressure;
-    assign mold_axis_tready   = parser_axis_tready && !book_backpressure;
 
     // Instantiate MoldUDP64 Depacketizer
     moldudp64_depacketizer #(
@@ -125,26 +115,9 @@ module ingress_pipeline_top #(
                 .rst_n                (rst_n),
                 .s_axis_tdata         (mold_axis_tdata),
                 .s_axis_tkeep         (mold_axis_tkeep),
-                .s_axis_tvalid        (parser_axis_tvalid),
+                .s_axis_tvalid        (mold_axis_tvalid),
                 .s_axis_tlast         (mold_axis_tlast),
-                .s_axis_tready        (parser_axis_tready),
-                .parsed_msg_valid     (parsed_msg_valid),
-                .parsed_msg           (parsed_msg),
-                .msg_drop             (msg_drop),
-                .unsupported_type_code(unsupported_type_code),
-                .parsed_msg_count     (parsed_msg_count),
-                .dropped_msg_count    (dropped_msg_count),
-                .truncated_msg_count  (parser_truncated_count)
-            );
-        end else begin : gen_classic_parser
-            itch_parser_fsm u_itch_parser (
-                .clk                  (clk),
-                .rst_n                (rst_n),
-                .s_axis_tdata         (mold_axis_tdata),
-                .s_axis_tkeep         (mold_axis_tkeep),
-                .s_axis_tvalid        (parser_axis_tvalid),
-                .s_axis_tlast         (mold_axis_tlast),
-                .s_axis_tready        (parser_axis_tready),
+                .s_axis_tready        (mold_axis_tready),
                 .parsed_msg_valid     (parsed_msg_valid),
                 .parsed_msg           (parsed_msg),
                 .msg_drop             (msg_drop),
@@ -152,7 +125,22 @@ module ingress_pipeline_top #(
                 .parsed_msg_count     (parsed_msg_count),
                 .dropped_msg_count    (dropped_msg_count)
             );
-            assign parser_truncated_count = 32'd0; // classic FSM: no frame-boundary recovery
+        end else begin : gen_classic_parser
+            itch_parser_fsm u_itch_parser (
+                .clk                  (clk),
+                .rst_n                (rst_n),
+                .s_axis_tdata         (mold_axis_tdata),
+                .s_axis_tkeep         (mold_axis_tkeep),
+                .s_axis_tvalid        (mold_axis_tvalid),
+                .s_axis_tlast         (mold_axis_tlast),
+                .s_axis_tready        (mold_axis_tready),
+                .parsed_msg_valid     (parsed_msg_valid),
+                .parsed_msg           (parsed_msg),
+                .msg_drop             (msg_drop),
+                .unsupported_type_code(unsupported_type_code),
+                .parsed_msg_count     (parsed_msg_count),
+                .dropped_msg_count    (dropped_msg_count)
+            );
         end
     endgenerate
 

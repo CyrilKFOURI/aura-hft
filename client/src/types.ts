@@ -94,7 +94,6 @@ export interface AxiLiteStatus {
   total_orders_rejected: number;
   arbitrated_orders: number;
   collision_count: number;
-  telemetry_source: string;
 }
 
 export interface AxiLiteTuneRequest {
@@ -104,71 +103,5 @@ export interface AxiLiteTuneRequest {
   max_inventory?: number;
   max_order_shares?: number;
   strategy_mode?: string;
-}
-
-// ---- Step P6: latency provenance and live feed
-export interface FpgaLatency {
-  kind: 'simulated';
-  cycles: number;
-  clock_mhz: number;
-  ns: number;
-  scope: string;
-  source: string;
-}
-
-export interface DataSource {
-  kind: string;
-  name: string;
-  date: string;
-  file: string;
-}
-
-export interface SoftwareLatency {
-  kind: 'measured';
-  symbol: string;
-  events: number;
-  messages: number;
-  p50_ns: number | null;
-  p99_ns: number | null;
-  p999_ns: number | null;
-  mean_ns: number | null;
-  max_ns: number | null;
-  throughput_msgs_per_s: number | null;
-  timer_overhead_ns: number | null;
-  cpu: string;
-  histogram: [number, number, number][]; // [lower_ns, upper_ns, count]
-  data_source: DataSource;
-  source: string;
-}
-
-export interface LatencySummary {
-  fpga: FpgaLatency;
-  software: SoftwareLatency[];
-}
-
-export interface LiveStatus {
-  state: 'idle' | 'connecting' | 'live' | 'offline' | 'disabled';
-  feed: string | null;
-  url: string | null;
-  instrument: string | null;
-  mode: string;
-  updates: number;
-  reconnects: number;
-  last_update: string | null;
-  last_error: string | null;
-  signals: { buy: number; sell: number };
-  software_latency_ns: { kind: string; samples: number; p50: number | null; p99: number | null; p999: number | null };
-}
-
-export interface LiveTick {
-  source: string;
-  instrument: string;
-  ts: string;
-  bids: [number, number][];
-  asks: [number, number][];
-  obi: number | null;
-  signal: { valid: boolean; buy: boolean; sell: boolean };
-  sw_latency_ns: number;
-  updates: number;
 }
 
