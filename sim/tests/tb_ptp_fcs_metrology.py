@@ -2,11 +2,9 @@
 Cocotb testbench for Tranche 16: IEEE 1588 PTP Timer, Ethernet FCS CRC32, and Latency Metrology.
 """
 
-import binascii
-import struct
 import cocotb
 from cocotb.clock import Clock
-from cocotb.triggers import RisingEdge, Timer
+from cocotb.triggers import RisingEdge
 
 
 @cocotb.test()

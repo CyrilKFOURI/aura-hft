@@ -14,15 +14,15 @@ Validates:
 import struct
 import cocotb
 from cocotb.clock import Clock
-from cocotb.triggers import RisingEdge, Timer
+from cocotb.triggers import RisingEdge
 
 
 async def reset_dut(dut):
     """Initializes and resets the DUT."""
     dut.rst_n.value = 0
-    dut.obi_valid.value = 0
-    dut.obi_val.value = 0
-    dut.micro_price.value = 0
+    dut.bbo_valid.value = 0
+    dut.bbo_bid_shares.value = 0
+    dut.bbo_ask_shares.value = 0
     dut.bbo_bid_price.value = 0
     dut.bbo_ask_price.value = 0
     dut.current_timestamp.value = 0
@@ -75,7 +75,8 @@ async def test_kill_switch_rejection(dut):
     await RisingEdge(dut.clk)
     dut.host_intent_valid.value = 0
 
-    # 1 cycle after intent: inspect risk decision
+    # Pre-trade risk is a 2-stage pipeline: decision 2 cycles after the intent
+    await RisingEdge(dut.clk)
     await RisingEdge(dut.clk)
     assert dut.risk_rejected_strobe.value == 1, "Expected risk rejection strobe"
     assert dut.risk_approved_strobe.value == 0, "Order must not be approved"
@@ -105,6 +106,8 @@ async def test_max_shares_rejection(dut):
     await RisingEdge(dut.clk)
     dut.host_intent_valid.value = 0
 
+    # Pre-trade risk is a 2-stage pipeline: decision 2 cycles after the intent
+    await RisingEdge(dut.clk)
     await RisingEdge(dut.clk)
     assert dut.risk_rejected_strobe.value == 1
     assert dut.risk_approved_strobe.value == 0
@@ -135,6 +138,8 @@ async def test_price_collar_rejection(dut):
     await RisingEdge(dut.clk)
     dut.host_intent_valid.value = 0
 
+    # Pre-trade risk is a 2-stage pipeline: decision 2 cycles after the intent
+    await RisingEdge(dut.clk)
     await RisingEdge(dut.clk)
     assert dut.risk_rejected_strobe.value == 1
     assert dut.risk_approved_strobe.value == 0
@@ -166,6 +171,8 @@ async def test_max_notional_rejection(dut):
     await RisingEdge(dut.clk)
     dut.host_intent_valid.value = 0
 
+    # Pre-trade risk is a 2-stage pipeline: decision 2 cycles after the intent
+    await RisingEdge(dut.clk)
     await RisingEdge(dut.clk)
     assert dut.risk_rejected_strobe.value == 1
     assert dut.risk_approved_strobe.value == 0
@@ -198,6 +205,8 @@ async def test_approved_order_ouch_packet_generation(dut):
     await RisingEdge(dut.clk)
     dut.host_intent_valid.value = 0
 
+    # Pre-trade risk is a 2-stage pipeline: decision 2 cycles after the intent
+    await RisingEdge(dut.clk)
     await RisingEdge(dut.clk)
     assert dut.risk_approved_strobe.value == 1
     assert dut.risk_rejected_strobe.value == 0
@@ -225,13 +234,13 @@ async def test_approved_order_ouch_packet_generation(dut):
 
     assert tlast_seen, "Did not observe m_axis_tlast on final beat"
     assert len(collected_bytes) == 91, f"Expected 91-byte packet, got {len(collected_bytes)}"
-    dut._log.info(f"Successfully collected 91-byte OUCH packet!")
+    dut._log.info("Successfully collected 91-byte OUCH packet!")
 
     # Verify Network Headers:
     # 1. Ethernet II Header (14 bytes)
     eth_hdr = bytes(collected_bytes[:14])
-    dest_mac = eth_hdr[:6]
-    src_mac = eth_hdr[6:12]
+    _dest_mac = eth_hdr[:6]
+    _src_mac = eth_hdr[6:12]
     eth_type = struct.unpack(">H", eth_hdr[12:14])[0]
     assert eth_type == 0x0800, "Expected IPv4 EtherType 0x0800"
 
@@ -288,19 +297,23 @@ async def test_autonomous_strategy_trigger(dut):
 
     dut.bbo_bid_price.value = 1500000
     dut.bbo_ask_price.value = 1500500
-    dut.micro_price.value = 1500300
-
-    # Quantitative engine asserts OBI = +0.50 (> +0.40 threshold)
-    dut.obi_valid.value = 1
-    dut.obi_val.value = 1073741824 # +0.50 in Q1.31
-
+    # Book update with OBI = (300 - 100) / (300 + 100) = +0.50 (> +0.40 threshold)
+    dut.bbo_bid_shares.value = 300
+    dut.bbo_ask_shares.value = 100
+    dut.bbo_valid.value = 1
     await RisingEdge(dut.clk)
-    dut.obi_valid.value = 0
+    dut.bbo_valid.value = 0
 
-    # In 1 cycle, strategy arbitrates and risk engine validates
-    await RisingEdge(dut.clk)
-    assert dut.risk_approved_strobe.value == 1, "Autonomous strategy order must be risk approved"
-    assert dut.risk_rejected_strobe.value == 0
+    # Division-free OBI decision (2 cycles) + 2-stage pre-trade risk
+    approved_after = None
+    for cycle in range(1, 8):
+        await RisingEdge(dut.clk)
+        if dut.risk_approved_strobe.value == 1:
+            approved_after = cycle
+            break
+        assert dut.risk_rejected_strobe.value == 0
+    assert approved_after is not None, "Autonomous strategy order must be risk approved"
+    dut._log.info(f"BBO -> risk approval in {approved_after} cycles")
 
     # Monitor AXI egress packet
     packet_transmitted = False

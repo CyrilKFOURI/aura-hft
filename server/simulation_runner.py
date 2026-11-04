@@ -6,8 +6,6 @@ evaluates 1-cycle pre-trade risk controls, and emits OUCH orders with hardware c
 
 import json
 import random
-import time
-import math
 from datetime import datetime, timezone
 from typing import Dict, List, Optional, Tuple, Any
 import numpy as np
@@ -15,6 +13,7 @@ import numpy as np
 from sim.golden_model.golden_order_book import GoldenOrderBook
 from sim.golden_model.itch_decoder import ItchMessage
 from .db import DatabaseManager
+from .latency_sources import FPGA_CLOCK_MHZ, FPGA_SIM_CYCLES
 from .models import RunLaunchRequest
 
 
@@ -286,9 +285,10 @@ class SimulationRunner:
 
             if trigger_order:
                 user_ref_counter += 1
-                # Exact hardware latency (49 cycles ± 1 cycle jitter = 307.2 - 320.0 ns)
-                latency_cycles = 49 + random.choice([-1, 0, 1])
-                latency_ns = round(latency_cycles * 6.4, 2)
+                # Synthetic demo runner (not Verilator): it reports the tick-to-trade
+                # latency simulated for the RTL (docs/CLAIMS.md C1), no invented jitter.
+                latency_cycles = FPGA_SIM_CYCLES
+                latency_ns = round(latency_cycles * 1000.0 / FPGA_CLOCK_MHZ, 2)
                 latencies.append(latency_ns)
 
                 order_notional = order_shares * order_price
@@ -333,8 +333,8 @@ class SimulationRunner:
         self.db.insert_ticks_batch(ticks_records)
         self.db.insert_orders_batch(orders_records)
 
-        p50 = float(np.percentile(latencies, 50)) if latencies else 313.6
-        p99 = float(np.percentile(latencies, 99)) if latencies else 313.6
+        p50 = float(np.percentile(latencies, 50)) if latencies else None
+        p99 = float(np.percentile(latencies, 99)) if latencies else None
 
         self.db.update_run_completion(
             run_id=run_id,

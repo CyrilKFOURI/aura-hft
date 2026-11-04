@@ -4,7 +4,6 @@ Invokes Cocotb + Verilator co-simulation.
 """
 
 from pathlib import Path
-import pytest
 from cocotb_test.simulator import run
 
 
@@ -16,17 +15,20 @@ def test_multi_ticker_pipeline_verilator():
         str(repo_root / "rtl" / "include" / "itch_pkg.sv"),
         str(repo_root / "rtl" / "include" / "lob_pkg.sv"),
         str(repo_root / "rtl" / "include" / "ouch_pkg.sv"),
-        str(repo_root / "rtl" / "ingress" / "multi_symbol_router.sv"),
-        str(repo_root / "rtl" / "book" / "order_hash_table.sv"),
-        str(repo_root / "rtl" / "book" / "price_ladder_l2.sv"),
+        str(repo_root / "rtl" / "experimental" / "multi_symbol_router.sv"),
+        str(repo_root / "rtl" / "experimental" / "order_hash_table.sv"),
+        str(repo_root / "rtl" / "experimental" / "price_ladder_l2.sv"),
         str(repo_root / "rtl" / "book" / "top_of_book_cache.sv"),
+        str(repo_root / "rtl" / "book" / "order_store.sv"),
+        str(repo_root / "rtl" / "book" / "depth_book.sv"),
         str(repo_root / "rtl" / "book" / "lob_engine_top.sv"),
-        str(repo_root / "rtl" / "quant" / "avellaneda_stoikov_engine.sv"),
-        str(repo_root / "rtl" / "egress" / "egress_arbiter.sv"),
+        str(repo_root / "rtl" / "experimental" / "avellaneda_stoikov_engine.sv"),
+        str(repo_root / "rtl" / "experimental" / "egress_arbiter.sv"),
         str(repo_root / "rtl" / "egress" / "ouch_order_gen.sv"),
         str(repo_root / "rtl" / "risk" / "pre_trade_risk.sv"),
+        str(repo_root / "rtl" / "quant" / "obi_signal.sv"),
         str(repo_root / "rtl" / "risk" / "risk_ouch_top.sv"),
-        str(repo_root / "rtl" / "top" / "multi_ticker_pipeline_top.sv"),
+        str(repo_root / "rtl" / "experimental" / "multi_ticker_pipeline_top.sv"),
     ]
     includes = [
         str(repo_root / "rtl" / "include"),

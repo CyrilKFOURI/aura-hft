@@ -145,6 +145,7 @@ module multi_ticker_pipeline_top #(
                 .table_hit            (),
                 .table_miss           (),
                 .table_full           (),
+                .req_almost_full      (),  // shared ingress: no per-book backpressure (experimental)
                 .depletion_event_valid(),
                 .depletion_event_side (),
                 .depletion_event_price(),
@@ -234,9 +235,9 @@ module multi_ticker_pipeline_top #(
     risk_ouch_top u_risk_ouch (
         .clk                       (clk),
         .rst_n                     (rst_n),
-        .obi_valid                 (1'b0),
-        .obi_val                   (32'sd0),
-        .micro_price               (32'd0),
+        .bbo_valid                 (1'b0),
+        .bbo_bid_shares            (32'd0),
+        .bbo_ask_shares            (32'd0),
         .bbo_bid_price             (arb_out_price),
         .bbo_ask_price             (arb_out_price + 32'd200),
         .current_timestamp         (48'd0),

@@ -1,0 +1,19 @@
+{
+  "symbol": "AAPL",
+  "messages_replayed": 125232,
+  "bbo_mismatches": 0,
+  "top5_mismatches": 0,
+  "first_bbo_mismatch_msg": null,
+  "active_order_count_end": 39960,
+  "parsed_msg_count_end": 125232,
+  "real_sizing": {
+    "symbol": "AAPL",
+    "messages": 125232,
+    "max_live_orders": 39964,
+    "max_bid_levels": 2754,
+    "max_ask_levels": 2681
+  },
+  "settle_cycles": 60,
+  "wall_seconds": 704.7,
+  "examples": []
+}

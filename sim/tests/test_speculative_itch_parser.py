@@ -4,7 +4,6 @@ Invokes Cocotb + Verilator co-simulation.
 """
 
 from pathlib import Path
-import pytest
 from cocotb_test.simulator import run
 
 

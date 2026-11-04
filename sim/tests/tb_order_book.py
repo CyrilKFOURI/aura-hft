@@ -4,19 +4,16 @@ Co-simulates RTL (itch_lob_pipeline_top) against Python Golden Reference Model (
 Verifies cycle-accurate BBO, price ladder, and zero divergence.
 """
 
-import struct
 import cocotb
 from cocotb.clock import Clock
-from cocotb.triggers import RisingEdge, Timer
-from sim.golden_model.itch_decoder import ItchDecoder, ItchMessage
+from cocotb.triggers import RisingEdge
+from sim.golden_model.itch_decoder import ItchDecoder
 from sim.golden_model.golden_order_book import GoldenOrderBook
 from sim.tests.tb_itch_parser import (
     build_eth_ip_udp_frame,
     send_axis_frame,
     encode_itch_a,
-    encode_itch_f,
     encode_itch_e,
-    encode_itch_c,
     encode_itch_x,
     encode_itch_d,
     encode_itch_u,

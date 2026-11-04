@@ -24,7 +24,7 @@ module aura_hft_dual_clock_top #(
     parameter bit          STRIP_ETH_IP_UDP     = 1'b1,
     parameter logic [63:0] TARGET_STOCK         = 64'h4141504C20202020, // "AAPL    "
     parameter bit          ENABLE_SYMBOL_FILTER = 1'b1,
-    parameter int unsigned NUM_SETS             = 256,
+    parameter int unsigned NUM_SETS             = 8192,
     parameter int unsigned NUM_WAYS             = 4,
     parameter int unsigned BOOK_DEPTH           = 16,
     parameter int unsigned NUM_TRACKED_ORDERS   = 4
@@ -32,7 +32,9 @@ module aura_hft_dual_clock_top #(
     // Dual Asynchronous Clock Sources
     input  logic        clk_net,            // 156.25 MHz (6.4 ns) - Network Ingress & Egress domain
     input  logic        clk_core,           // 312.50 MHz (3.2 ns) - Accelerated LOB & Quant Compute domain
+    /* verilator lint_off SYNCASYNCNET */ // rst_n also feeds the core reset synchronizer (see u_rst_sync_core)
     input  logic        rst_n,              // Asynchronous active-low system reset
+    /* verilator lint_on SYNCASYNCNET */
 
     // Ingress (RX) 64-bit AXI4-Stream Interface from 10G SFP+ MAC (clk_net domain)
     input  logic [63:0] s_axis_tdata,
@@ -111,6 +113,9 @@ module aura_hft_dual_clock_top #(
     // 1. Reset Synchronization into clk_core domain
     // ------------------------------------------------------------------------
     logic rst_n_core;
+    // rst_n is intentionally sampled as data by this reset synchronizer.
+    // TODO(P4): switch to async-assert / sync-deassert reset bridge.
+    /* verilator lint_off SYNCASYNCNET */
     cdc_sync_bit #(
         .INIT_VALUE(1'b0),
         .STAGES(2)
@@ -120,6 +125,7 @@ module aura_hft_dual_clock_top #(
         .src_signal (rst_n),
         .dest_signal(rst_n_core)
     );
+    /* verilator lint_on SYNCASYNCNET */
 
     // Synchronize control inputs into clk_core domain
     logic sync_kill_switch_core;
@@ -297,6 +303,7 @@ module aura_hft_dual_clock_top #(
     ) u_ingress (
         .clk                  (clk_net),
         .rst_n                (rst_n),
+        .book_backpressure    (1'b0),  // book is behind a CDC FIFO here: not wired (experimental)
         .s_axis_tdata         (fcs_axis_tdata),
         .s_axis_tkeep         (fcs_axis_tkeep),
         .s_axis_tvalid        (fcs_axis_tvalid),
@@ -473,9 +480,9 @@ module aura_hft_dual_clock_top #(
     ) u_risk_ouch_core (
         .clk                       (clk_core),
         .rst_n                     (rst_n_core),
-        .obi_valid                 (obi_valid),
-        .obi_val                   (obi_val),
-        .micro_price               (micro_price),
+        .bbo_valid                 (bbo_valid),
+        .bbo_bid_shares            (best_bid_shares),
+        .bbo_ask_shares            (best_ask_shares),
         .bbo_bid_price             (best_bid_price),
         .bbo_ask_price             (best_ask_price),
         .current_timestamp         (timer_net), // Coarse network timestamp

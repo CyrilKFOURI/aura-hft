@@ -12,7 +12,7 @@ module itch_lob_pipeline_top #(
     parameter bit [63:0] TARGET_STOCK         = 64'h4141504c20202020, // "AAPL    "
     parameter bit        ENABLE_SYMBOL_FILTER = 1'b1,
     parameter bit        STRIP_ETH_IP_UDP     = 1'b1,
-    parameter int        NUM_SETS             = 512,
+    parameter int        NUM_SETS             = 8192,
     parameter int        NUM_WAYS             = 4,
     parameter int        BOOK_DEPTH           = 16
 )(
@@ -69,6 +69,7 @@ module itch_lob_pipeline_top #(
     logic             unused_dup_detected;
     logic [63:0]      unused_expected_seq;
     logic             unused_table_full;
+    logic             book_backpressure;
     logic             unused_dep_valid;
     logic             unused_dep_side;
     logic [31:0]      unused_dep_price;
@@ -81,6 +82,7 @@ module itch_lob_pipeline_top #(
     ) u_ingress (
         .clk                  (clk),
         .rst_n                (rst_n),
+        .book_backpressure    (book_backpressure),
         .s_axis_tdata         (s_axis_tdata),
         .s_axis_tkeep         (s_axis_tkeep),
         .s_axis_tvalid        (s_axis_tvalid),
@@ -133,6 +135,7 @@ module itch_lob_pipeline_top #(
         .table_hit         (table_hit),
         .table_miss        (table_miss),
         .table_full        (unused_table_full),
+        .req_almost_full   (book_backpressure),
         .depletion_event_valid (unused_dep_valid),
         .depletion_event_side  (unused_dep_side),
         .depletion_event_price (unused_dep_price),

@@ -81,6 +81,7 @@ module cross_exchange_pipeline_top #(
     ) u_ingress_a (
         .clk             (clk),
         .rst_n           (rst_n),
+        .book_backpressure(1'b0),  // experimental top: not wired
         .s_axis_tdata    (s_axis_a_tdata),
         .s_axis_tkeep    (s_axis_a_tkeep),
         .s_axis_tvalid   (s_axis_a_tvalid),
@@ -133,6 +134,7 @@ module cross_exchange_pipeline_top #(
     ) u_ingress_b (
         .clk             (clk),
         .rst_n           (rst_n),
+        .book_backpressure(1'b0),  // experimental top: not wired
         .s_axis_tdata    (s_axis_b_tdata),
         .s_axis_tkeep    (s_axis_b_tkeep),
         .s_axis_tvalid   (s_axis_b_tvalid),

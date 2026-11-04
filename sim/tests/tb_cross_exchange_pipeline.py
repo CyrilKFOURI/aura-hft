@@ -7,7 +7,7 @@ and automated instantaneous sub-5ns cross-exchange arbitrage triggering.
 import struct
 import cocotb
 from cocotb.clock import Clock
-from cocotb.triggers import RisingEdge, Timer
+from cocotb.triggers import RisingEdge
 
 
 def build_eth_ip_udp_frame(session_name: bytes, seq_num: int, msg_payloads: list) -> bytes:

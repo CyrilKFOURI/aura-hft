@@ -6,8 +6,8 @@ Co-simulates RTL against Python Golden Reference Model (ItchDecoder).
 import struct
 import cocotb
 from cocotb.clock import Clock
-from cocotb.triggers import RisingEdge, Timer
-from sim.golden_model.itch_decoder import ItchDecoder, ItchMessage
+from cocotb.triggers import RisingEdge
+from sim.golden_model.itch_decoder import ItchDecoder
 
 
 def build_eth_ip_udp_frame(session_name: bytes, seq_num: int, msg_payloads: list) -> bytes:

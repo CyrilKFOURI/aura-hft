@@ -208,6 +208,16 @@ class TestGoldenOrderBook:
         assert 101 in book.orders
         assert book.best_bid() == (50.50, 250)
 
+    def test_replace_of_unknown_order_is_ignored(self, book):
+        # 'U' has no symbol field: a replace of an order this book never saw
+        # belongs to another instrument and must not create a phantom order.
+        book.process_message(ItchMessage(
+            msg_type="U", stock_locate=99, tracking_number=1, timestamp_ns=1000,
+            original_order_ref=555, new_order_ref=556, shares=300, price=12.34, raw_price=123400
+        ))
+        assert book.orders == {}
+        assert book.best_bid() is None and book.best_ask() is None
+
     def test_obi_and_micro_price(self, book):
         # Best Bid: 300 shares @ 100.00
         book.process_message(ItchMessage(

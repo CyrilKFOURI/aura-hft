@@ -6,7 +6,7 @@ Verifies memory-mapped read/write transactions, default values, and status reado
 
 import cocotb
 from cocotb.clock import Clock
-from cocotb.triggers import RisingEdge, Timer
+from cocotb.triggers import RisingEdge
 
 
 async def reset_dut(dut):

@@ -5,7 +5,6 @@ Builds and executes the native C++ unit test suite.
 
 import subprocess
 from pathlib import Path
-import pytest
 
 
 def test_cpp20_uio_driver():

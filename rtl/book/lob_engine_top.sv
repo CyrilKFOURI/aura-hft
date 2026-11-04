@@ -11,9 +11,10 @@ import lob_pkg::*;
 module lob_engine_top #(
     parameter bit [63:0] TARGET_STOCK         = 64'h4141504c20202020, // "AAPL    "
     parameter bit        ENABLE_SYMBOL_FILTER = 1'b1,
-    parameter int        NUM_SETS             = 512,
+    parameter int        NUM_SETS             = 8192,  // per bank (two banks, two-choice hashing)
     parameter int        NUM_WAYS             = 4,
-    parameter int        BOOK_DEPTH            = 16
+    parameter int        BOOK_DEPTH            = 16,   // legacy, unused: full depth is now kept
+    parameter logic [31:0] PRICE_BASE         = 32'd0  // raw price of tick 0 of the depth window
 )(
     input  logic             clk,
     input  logic             rst_n,
@@ -45,6 +46,7 @@ module lob_engine_top #(
     output logic             table_hit,
     output logic             table_miss,
     output logic             table_full,
+    output logic             req_almost_full,   // backpressure to the ingress (P3b)
 
     // Depletion Event Outputs for Queue Tracker
     output logic             depletion_event_valid,
@@ -107,7 +109,59 @@ module lob_engine_top #(
         end
     end
 
-    // Interconnect between Hash Table and Price Ladder
+    // ------------------------------------------------------------------
+    // Request FIFO: the full-depth book is multi-cycle, the parser is not.
+    // ------------------------------------------------------------------
+    localparam int FIFO_BITS = 6;
+    typedef struct packed {
+        logic [2:0]  op;
+        logic [63:0] order_ref;
+        logic [63:0] orig_ref;
+        logic        side;
+        logic [31:0] shares;
+        logic [31:0] price;
+    } book_req_t;
+
+    book_req_t             fifo_mem [0:(1<<FIFO_BITS)-1];
+    logic [FIFO_BITS:0]    fifo_wr, fifo_rd;
+    logic                  fifo_empty, fifo_full;
+    book_req_t             fifo_head;
+    logic                  store_req_ready;
+    logic [31:0]           fifo_overflow_count;
+
+    assign fifo_empty = (fifo_wr == fifo_rd);
+    assign fifo_full  = (fifo_wr[FIFO_BITS] != fifo_rd[FIFO_BITS]) &&
+                        (fifo_wr[FIFO_BITS-1:0] == fifo_rd[FIFO_BITS-1:0]);
+    assign fifo_head  = fifo_mem[fifo_rd[FIFO_BITS-1:0]];
+    // Stall the ingress with room to spare: when the ingress stops, the parser
+    // can still drain its 64-byte window (<= 3 messages) plus one in flight.
+    localparam int FIFO_STALL_LEVEL = (1 << FIFO_BITS) - 8;
+    logic [FIFO_BITS:0] fifo_level;
+    assign fifo_level      = fifo_wr - fifo_rd;
+    assign req_almost_full = (32'(fifo_level) >= FIFO_STALL_LEVEL);
+
+    always_ff @(posedge clk or negedge rst_n) begin
+        if (!rst_n) begin
+            fifo_wr             <= '0;
+            fifo_rd             <= '0;
+            fifo_overflow_count <= '0;
+        end else begin
+            if (ht_req_valid) begin
+                if (!fifo_full) begin
+                    fifo_mem[fifo_wr[FIFO_BITS-1:0]] <= '{op: ht_req_op, order_ref: ht_req_order_ref,
+                        orig_ref: ht_req_orig_ref, side: ht_req_side, shares: ht_req_shares, price: ht_req_price};
+                    fifo_wr <= fifo_wr + 1'b1;
+                end else begin
+                    fifo_overflow_count <= fifo_overflow_count + 1'b1;
+                end
+            end
+            if (!fifo_empty && store_req_ready) fifo_rd <= fifo_rd + 1'b1;
+        end
+    end
+
+    // ------------------------------------------------------------------
+    // Live-order table (two-choice hashing + stash)
+    // ------------------------------------------------------------------
     logic        ht_out_valid;
     lob_cmd_e    ht_out_cmd;
     logic        ht_out_side;
@@ -115,21 +169,25 @@ module lob_engine_top #(
     logic [31:0] ht_out_shares;
     logic [31:0] ht_out_old_price;
     logic [31:0] ht_out_old_shares;
+    logic        book_ready;
+    logic [$clog2(17)-1:0] stash_count;
+    logic [31:0] store_overflow_count;
 
-    // Instantiate Order Hash Table
-    order_hash_table #(
-        .NUM_SETS(NUM_SETS),
+    order_store #(
+        .SET_BITS($clog2(NUM_SETS)),
         .NUM_WAYS(NUM_WAYS)
-    ) u_hash_table (
+    ) u_store (
         .clk               (clk),
         .rst_n             (rst_n),
-        .req_valid         (ht_req_valid),
-        .req_op            (ht_req_op),
-        .req_order_ref     (ht_req_order_ref),
-        .req_orig_ref      (ht_req_orig_ref),
-        .req_side          (ht_req_side),
-        .req_shares        (ht_req_shares),
-        .req_price         (ht_req_price),
+        .req_valid         (!fifo_empty),
+        .req_ready         (store_req_ready),
+        .req_op            (fifo_head.op),
+        .req_order_ref     (fifo_head.order_ref),
+        .req_orig_ref      (fifo_head.orig_ref),
+        .req_side          (fifo_head.side),
+        .req_shares        (fifo_head.shares),
+        .req_price         (fifo_head.price),
+        .out_ready         (book_ready),
         .out_valid         (ht_out_valid),
         .out_cmd           (ht_out_cmd),
         .out_side          (ht_out_side),
@@ -140,7 +198,9 @@ module lob_engine_top #(
         .table_hit         (table_hit),
         .table_miss        (table_miss),
         .table_full        (table_full),
-        .active_order_count(active_order_count)
+        .active_order_count(active_order_count),
+        .stash_count       (stash_count),
+        .overflow_count    (store_overflow_count)
     );
 
     // Drive depletion events for queue tracking
@@ -149,49 +209,50 @@ module lob_engine_top #(
     assign depletion_event_price  = (ht_out_cmd == LOB_CMD_REPLACE) ? ht_out_old_price : ht_out_price;
     assign depletion_event_shares = (ht_out_cmd == LOB_CMD_REPLACE) ? ht_out_old_shares : ht_out_shares;
 
-    // Interconnect between Price Ladder and Top-of-Book Cache
-    price_level_t ladder_bid_levels [0:BOOK_DEPTH-1];
-    price_level_t ladder_ask_levels [0:BOOK_DEPTH-1];
-    logic [4:0]   ladder_bid_count;
-    logic [4:0]   ladder_ask_count;
-    logic         ladder_book_updated;
-    logic         ladder_busy;
+    // ------------------------------------------------------------------
+    // Full-depth price book with exact top-5 extraction
+    // ------------------------------------------------------------------
+    price_level_t top_bid_levels [0:TOP_N-1];
+    price_level_t top_ask_levels [0:TOP_N-1];
+    logic [15:0]  bid_level_count, ask_level_count;
+    logic         book_updated;
+    logic [31:0]  out_of_window_orders;
 
-    assign bid_depth_count = ladder_bid_count;
-    assign ask_depth_count = ladder_ask_count;
-
-    // Instantiate Price Ladder
-    price_ladder_l2 #(
-        .DEPTH(BOOK_DEPTH)
-    ) u_price_ladder (
-        .clk           (clk),
-        .rst_n         (rst_n),
-        .cmd_valid     (ht_out_valid),
-        .cmd_op        (ht_out_cmd),
-        .cmd_side      (ht_out_side),
-        .cmd_price     (ht_out_price),
-        .cmd_shares    (ht_out_shares),
-        .cmd_old_price (ht_out_old_price),
-        .cmd_old_shares(ht_out_old_shares),
-        .bid_levels    (ladder_bid_levels),
-        .ask_levels    (ladder_ask_levels),
-        .bid_count     (ladder_bid_count),
-        .ask_count     (ladder_ask_count),
-        .book_updated  (ladder_book_updated),
-        .busy          (ladder_busy)
+    depth_book #(
+        .PRICE_BASE(PRICE_BASE),
+        .TOP_LEVELS(TOP_N)
+    ) u_depth_book (
+        .clk                 (clk),
+        .rst_n               (rst_n),
+        .cmd_valid           (ht_out_valid),
+        .cmd_ready           (book_ready),
+        .cmd_op              (ht_out_cmd),
+        .cmd_side            (ht_out_side),
+        .cmd_price           (ht_out_price),
+        .cmd_shares          (ht_out_shares),
+        .cmd_old_price       (ht_out_old_price),
+        .cmd_old_shares      (ht_out_old_shares),
+        .bid_levels          (top_bid_levels),
+        .ask_levels          (top_ask_levels),
+        .bid_level_count     (bid_level_count),
+        .ask_level_count     (ask_level_count),
+        .book_updated        (book_updated),
+        .out_of_window_orders(out_of_window_orders)
     );
 
-    // Instantiate Top-of-Book Cache
+    assign bid_depth_count = (bid_level_count > 16'd31) ? 5'd31 : bid_level_count[4:0];
+    assign ask_depth_count = (ask_level_count > 16'd31) ? 5'd31 : ask_level_count[4:0];
+
     top_of_book_cache #(
-        .DEPTH(BOOK_DEPTH)
+        .DEPTH(TOP_N)
     ) u_top_of_book (
         .clk            (clk),
         .rst_n          (rst_n),
-        .bid_levels     (ladder_bid_levels),
-        .ask_levels     (ladder_ask_levels),
-        .bid_count      (ladder_bid_count),
-        .ask_count      (ladder_ask_count),
-        .book_updated   (ladder_book_updated),
+        .bid_levels     (top_bid_levels),
+        .ask_levels     (top_ask_levels),
+        .bid_count      (bid_depth_count),
+        .ask_count      (ask_depth_count),
+        .book_updated   (book_updated),
         .bbo_valid      (bbo_valid),
         .best_bid_price (best_bid_price),
         .best_bid_shares(best_bid_shares),

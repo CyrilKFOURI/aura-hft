@@ -8,7 +8,7 @@ import pytest
 from fastapi.testclient import TestClient
 
 from server.main import app
-from server.db import init_db, DatabaseManager
+from server.db import init_db
 
 
 @pytest.fixture(scope="module")

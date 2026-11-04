@@ -9,7 +9,7 @@ Co-simulates quant_engine_top against Python Golden Model:
 import math
 import cocotb
 from cocotb.clock import Clock
-from cocotb.triggers import RisingEdge, Timer
+from cocotb.triggers import RisingEdge
 from sim.golden_model.golden_order_book import GoldenOrderBook
 
 
@@ -184,7 +184,7 @@ async def test_queue_tracker_depletion(dut):
     await RisingEdge(dut.clk)
     # Check initial status
     assert (int(dut.slot_active.value) & 1) == 1
-    assert int(dut.slot_volume_ahead[0].value) == 500
+    assert (int(dut.slot_volume_ahead.value) & 0xFFFFFFFF) == 500
     assert (int(dut.slot_is_top_of_queue.value) & 1) == 0
 
     # Event 1: Market execution of 200 shares at $150.00
@@ -196,7 +196,7 @@ async def test_queue_tracker_depletion(dut):
     dut.event_valid.value = 0
 
     await RisingEdge(dut.clk)
-    assert int(dut.slot_volume_ahead[0].value) == 300
+    assert (int(dut.slot_volume_ahead.value) & 0xFFFFFFFF) == 300
     assert (int(dut.slot_is_top_of_queue.value) & 1) == 0
 
     # Event 2: Cancellation of 100 shares at $150.00
@@ -208,7 +208,7 @@ async def test_queue_tracker_depletion(dut):
     dut.event_valid.value = 0
 
     await RisingEdge(dut.clk)
-    assert int(dut.slot_volume_ahead[0].value) == 200
+    assert (int(dut.slot_volume_ahead.value) & 0xFFFFFFFF) == 200
     assert (int(dut.slot_is_top_of_queue.value) & 1) == 0
 
     # Event 3: Execution of 250 shares at $150.00 (exceeds remaining 200 volume ahead)
@@ -221,7 +221,7 @@ async def test_queue_tracker_depletion(dut):
 
     await RisingEdge(dut.clk)
     # Volume ahead clamped to 0, and order reaches top of queue!
-    assert int(dut.slot_volume_ahead[0].value) == 0
+    assert (int(dut.slot_volume_ahead.value) & 0xFFFFFFFF) == 0
     assert (int(dut.slot_is_top_of_queue.value) & 1) == 1
     dut._log.info("Queue Tracker successfully confirmed Top-of-Queue status!")
 

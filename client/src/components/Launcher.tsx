@@ -1,10 +1,10 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { 
   Play, ShieldAlert, AlertTriangle, 
   Check, ChevronDown, Sliders, Activity, Database
 } from 'lucide-react';
-import type { RunLaunchRequest, RunResponse } from '../types';
-import { launchRun } from '../services/api';
+import type { FpgaLatency, RunLaunchRequest, RunResponse } from '../types';
+import { fetchLatency, launchRun } from '../services/api';
 
 const TICKERS = [
   { symbol: 'AAPL', locate: 1, name: 'Apple Inc.' },
@@ -43,7 +43,7 @@ const SCENARIOS = [
     title: 'Risk Stress Test (Rejection)',
     regime: 'COLLAR_BREACH',
     depth: 'Fat-Finger Anomaly',
-    desc: 'Deliberately injects out-of-collar quotes and excessive lot sizes to verify 1-cycle FPGA hardware drop.',
+    desc: 'Deliberately injects out-of-collar quotes and excessive lot sizes to exercise the pre-trade risk rejects (synthetic demo).',
     ticks: 300,
   },
 ];
@@ -64,6 +64,11 @@ export const Launcher: React.FC<LauncherProps> = ({ onRunLaunched }) => {
   const [tickLimit, setTickLimit] = useState<number>(500);
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
+  const [fpgaLatency, setFpgaLatency] = useState<FpgaLatency | null>(null);
+
+  useEffect(() => {
+    fetchLatency().then((l) => setFpgaLatency(l.fpga)).catch(() => setFpgaLatency(null));
+  }, []);
 
   const activeTickerObj = TICKERS.find((t) => t.symbol === selectedTicker) || TICKERS[0];
   const activeScenarioObj = SCENARIOS.find((s) => s.id === selectedScenario) || SCENARIOS[0];
@@ -118,8 +123,10 @@ export const Launcher: React.FC<LauncherProps> = ({ onRunLaunched }) => {
         )}
 
         <div className="flex items-center space-x-2 text-[10px] text-neutral-500">
-          <span>DATAPATH:</span>
-          <span className="text-neutral-300 font-medium">49 CYCLES / 313.6ns</span>
+          <span>DATAPATH (SIMULATED):</span>
+          <span className="text-neutral-300 font-medium">
+            {fpgaLatency ? `${fpgaLatency.cycles} CYCLES / ${fpgaLatency.ns.toFixed(1)} ns` : '—'}
+          </span>
         </div>
       </div>
 

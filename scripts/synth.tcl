@@ -20,32 +20,25 @@ read_verilog -sv [list \
     $PROJECT_ROOT/rtl/include/lob_pkg.sv \
     $PROJECT_ROOT/rtl/include/ouch_pkg.sv \
     $PROJECT_ROOT/rtl/ingress/moldudp64_depacketizer.sv \
-    $PROJECT_ROOT/rtl/ingress/moldudp64_resilience_engine.sv \
     $PROJECT_ROOT/rtl/parser/itch_parser_fsm.sv \
     $PROJECT_ROOT/rtl/parser/speculative_itch_parser.sv \
     $PROJECT_ROOT/rtl/ingress/ingress_pipeline_top.sv \
-    $PROJECT_ROOT/rtl/book/order_hash_table.sv \
-    $PROJECT_ROOT/rtl/book/price_ladder_l2.sv \
     $PROJECT_ROOT/rtl/book/top_of_book_cache.sv \
+    $PROJECT_ROOT/rtl/book/order_store.sv \
+    $PROJECT_ROOT/rtl/book/depth_book.sv \
     $PROJECT_ROOT/rtl/book/lob_engine_top.sv \
     $PROJECT_ROOT/rtl/quant/obi_calculator.sv \
     $PROJECT_ROOT/rtl/quant/queue_tracker.sv \
     $PROJECT_ROOT/rtl/quant/quant_engine_top.sv \
     $PROJECT_ROOT/rtl/risk/pre_trade_risk.sv \
     $PROJECT_ROOT/rtl/risk/pnl_circuit_breaker.sv \
-    $PROJECT_ROOT/rtl/cdc/cdc_sync_bit.sv \
-    $PROJECT_ROOT/rtl/cdc/axis_async_fifo.sv \
-    $PROJECT_ROOT/rtl/cdc/cdc_msg_fifo.sv \
     $PROJECT_ROOT/rtl/egress/ouch_order_gen.sv \
+    $PROJECT_ROOT/rtl/quant/obi_signal.sv \
     $PROJECT_ROOT/rtl/risk/risk_ouch_top.sv \
     $PROJECT_ROOT/rtl/metrology/ptp_timer_96b.sv \
     $PROJECT_ROOT/rtl/metrology/axis_eth_fcs_checker.sv \
     $PROJECT_ROOT/rtl/metrology/latency_metrology.sv \
-    $PROJECT_ROOT/rtl/arb/cross_exchange_arbiter.sv \
-    $PROJECT_ROOT/rtl/arb/cross_exchange_pipeline_top.sv \
-    $PROJECT_ROOT/rtl/exec/iceberg_twap_engine.sv \
     $PROJECT_ROOT/rtl/top/aura_hft_top.sv \
-    $PROJECT_ROOT/rtl/top/aura_hft_dual_clock_top.sv \
 ]
 
 # Set Include Directories
@@ -53,10 +46,7 @@ set_property include_dirs [list \
     $PROJECT_ROOT/rtl/include \
     $PROJECT_ROOT/rtl/ingress \
     $PROJECT_ROOT/rtl/parser \
-    $PROJECT_ROOT/rtl/cdc \
     $PROJECT_ROOT/rtl/metrology \
-    $PROJECT_ROOT/rtl/arb \
-    $PROJECT_ROOT/rtl/exec \
     $PROJECT_ROOT/rtl/book \
     $PROJECT_ROOT/rtl/quant \
     $PROJECT_ROOT/rtl/risk \

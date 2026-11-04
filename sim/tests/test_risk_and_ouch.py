@@ -4,7 +4,6 @@ Invokes Cocotb + Verilator co-simulation.
 """
 
 from pathlib import Path
-import pytest
 from cocotb_test.simulator import run
 
 
@@ -16,6 +15,7 @@ def test_risk_and_ouch_verilator():
         str(repo_root / "rtl" / "include" / "ouch_pkg.sv"),
         str(repo_root / "rtl" / "risk" / "pre_trade_risk.sv"),
         str(repo_root / "rtl" / "egress" / "ouch_order_gen.sv"),
+        str(repo_root / "rtl" / "quant" / "obi_signal.sv"),
         str(repo_root / "rtl" / "risk" / "risk_ouch_top.sv"),
     ]
     includes = [
